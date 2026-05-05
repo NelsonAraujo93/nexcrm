@@ -1,0 +1,56 @@
+name: Version Bump
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+
+jobs:
+  version-bump:
+    name: Bump Version
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Detect bump type from PR labels
+        id: bump-type
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          if echo "$LABELS" | grep -q '"major"'; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q '"minor"'; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version in package.json
+        run: npm version ${{ steps.bump-type.outputs.type }} --no-git-tag-version
+
+      - name: Read new version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Configure git bot user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push version bump
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin dev
