@@ -1,15 +1,12 @@
 import request from 'supertest'
 import app from '../src/index'
-import { connectDB, disconnectDB } from '../src/config/db'
+
+jest.mock('../src/config/db', () => ({
+  connectDB: jest.fn().mockResolvedValue(undefined),
+  disconnectDB: jest.fn().mockResolvedValue(undefined),
+}))
 
 describe('Health endpoint', () => {
-  beforeAll(async () => {
-    await connectDB()
-  })
-
-  afterAll(async () => {
-    await disconnectDB()
-  })
 
   it('GET /health returns 200 with correct shape', async () => {
     const res = await request(app).get('/health')
